@@ -1339,9 +1339,9 @@
         <section class="top-card">
           <div>
             <h1>Histórico de ensaios</h1>
-            <p>Consulte os ensaios salvos no banco MySQL por relatório, técnico, cliente/projeto/linha, data e seriais.</p>
+            <p>Consulte os ensaios salvos no banco online por relatório, técnico, cliente/projeto/linha, data e seriais.</p>
           </div>
-          <button class="destino-badge">Banco MySQL</button>
+          <button class="destino-badge">Banco Online</button>
         </section>
 
         <section class="content-card">
@@ -3667,7 +3667,7 @@
       }
     };
 
-    // Traduções adicionais para garantir que o app inteiro, inclusive histórico/banco MySQL,
+    // Traduções adicionais para garantir que o app inteiro, inclusive histórico/banco online,
     // acompanhe o idioma escolhido pelo usuário.
     Object.assign(traducoesSistema.en, {
       "Salvar ensaio JSON": "Save test JSON",
@@ -3689,8 +3689,8 @@
       "Salvar no banco": "Save to database",
       "Histórico de ensaios": "Test history",
       "Carregar ensaio JSON": "Load test JSON",
-      "Banco MySQL": "MySQL Database",
-      "Consulte os ensaios salvos no banco MySQL por relatório, técnico, cliente/projeto/linha, data e seriais.": "Search tests saved in the MySQL database by report, technician, customer/project/line, date and serial numbers.",
+      "Banco Online": "Online Database",
+      "Consulte os ensaios salvos no banco online por relatório, técnico, cliente/projeto/linha, data e seriais.": "Search tests saved in the online database by report, technician, customer/project/line, date and serial numbers.",
       "Cliente / projeto / linha": "Customer / project / line",
       "Consulta de ensaios salvos": "Saved test search",
       "Use os filtros abaixo e clique em pesquisar. Você pode abrir um ensaio salvo de volta no app.": "Use the filters below and click Search. You can open a saved test back in the app.",
@@ -3719,8 +3719,8 @@
       "Digite a senha para editar/atualizar o ensaio:": "Enter the password to edit/update the test:",
       "Digite a senha para editar o ensaio:": "Enter the password to edit the test:",
       "Digite a senha para excluir o ensaio:": "Enter the password to delete the test:",
-      "Ensaio salvo no banco MySQL com sucesso.": "Test saved to MySQL database successfully.",
-      "Não foi possível salvar no banco MySQL.": "Could not save to MySQL database.",
+      "Ensaio salvo no banco online com sucesso.": "Test saved to online database successfully.",
+      "Não foi possível salvar no banco online.": "Could not save to online database.",
       "Detalhe:": "Detail:",
       "Erro no banco": "Database error",
       "Falha ao salvar no banco.": "Failed to save to database.",
@@ -3770,8 +3770,8 @@
       "Salvar no banco": "Guardar en la base",
       "Histórico de ensaios": "Historial de ensayos",
       "Carregar ensaio JSON": "Cargar ensayo JSON",
-      "Banco MySQL": "Base MySQL",
-      "Consulte os ensaios salvos no banco MySQL por relatório, técnico, cliente/projeto/linha, data e seriais.": "Consulte los ensayos guardados en la base MySQL por informe, técnico, cliente/proyecto/línea, fecha y números de serie.",
+      "Banco Online": "Base Online",
+      "Consulte os ensaios salvos no banco online por relatório, técnico, cliente/projeto/linha, data e seriais.": "Consulte los ensayos guardados en la base online por informe, técnico, cliente/proyecto/línea, fecha y números de serie.",
       "Cliente / projeto / linha": "Cliente / proyecto / línea",
       "Consulta de ensaios salvos": "Consulta de ensayos guardados",
       "Use os filtros abaixo e clique em pesquisar. Você pode abrir um ensaio salvo de volta no app.": "Use los filtros abajo y haga clic en buscar. Puede abrir un ensayo guardado nuevamente en la app.",
@@ -3800,8 +3800,8 @@
       "Digite a senha para editar/atualizar o ensaio:": "Digite la contraseña para editar/actualizar el ensayo:",
       "Digite a senha para editar o ensaio:": "Digite la contraseña para editar el ensayo:",
       "Digite a senha para excluir o ensaio:": "Digite la contraseña para eliminar el ensayo:",
-      "Ensaio salvo no banco MySQL com sucesso.": "Ensayo guardado en la base MySQL con éxito.",
-      "Não foi possível salvar no banco MySQL.": "No fue posible guardar en la base MySQL.",
+      "Ensaio salvo no banco online com sucesso.": "Ensayo guardado en la base online con éxito.",
+      "Não foi possível salvar no banco online.": "No fue posible guardar en la base online.",
       "Detalhe:": "Detalle:",
       "Erro no banco": "Error en la base",
       "Falha ao salvar no banco.": "Error al guardar en la base.",
@@ -4769,9 +4769,9 @@
 
         if (!resposta.ok) throw new Error(relT(dados.erro || "Falha ao salvar no banco."));
 
-        mostrarPopup(relT("Ensaio salvo no banco MySQL com sucesso.") + "<br><br><strong>" + relT("Relatório:") + "</strong> " + dados.numero_relatorio, relT("Banco MySQL"));
+        mostrarPopup(relT("Ensaio salvo no banco online com sucesso.") + "<br><br><strong>" + relT("Relatório:") + "</strong> " + dados.numero_relatorio, relT("Banco Online"));
       } catch (erro) {
-        mostrarPopup(relT("Não foi possível salvar no banco MySQL.") + "<br><br><strong>" + relT("Detalhe:") + "</strong> " + relT(erro.message), relT("Erro no banco"));
+        mostrarPopup(relT("Não foi possível salvar no banco online.") + "<br><br><strong>" + relT("Detalhe:") + "</strong> " + relT(erro.message), relT("Erro no banco"));
       }
     }
 
@@ -4865,7 +4865,7 @@
         mostrarPopup(
           (modoEdicao ? relT("Ensaio liberado para edição.") : relT("Ensaio carregado do banco com sucesso.")) +
           "<br><br><strong>" + relT("Relatório:") + "</strong> " + (dados.numero_relatorio || "-"),
-          relT("Banco MySQL")
+          relT("Banco Online")
         );
       } catch (erro) {
         mostrarPopup(relT("Não foi possível carregar o ensaio do banco.") + "<br><br><strong>" + relT("Detalhe:") + "</strong> " + relT(erro.message), relT("Erro no banco"));
@@ -4879,7 +4879,7 @@
     async function excluirEnsaioBanco(id) {
       const confirmar = await abrirPopupSistema({
         titulo: relT("Excluir ensaio"),
-        subtitulo: relT("Banco MySQL"),
+        subtitulo: relT("Banco Online"),
         mensagem: relT("Tem certeza que deseja excluir este ensaio do banco?") + "<br><br>" + relT("Esta ação não apaga arquivos JSON salvos no computador."),
         mostrarCancelar: true,
         textoConfirmar: relT("Sim, excluir"),
@@ -4898,7 +4898,7 @@
         });
         const dados = await resposta.json();
         if (!resposta.ok) throw new Error(relT(dados.erro || "Falha ao excluir ensaio."));
-        mostrarPopup(relT("Ensaio excluído do banco com sucesso."), relT("Banco MySQL"));
+        mostrarPopup(relT("Ensaio excluído do banco com sucesso."), relT("Banco Online"));
         pesquisarEnsaiosBanco();
       } catch (erro) {
         mostrarPopup(relT("Não foi possível excluir o ensaio.") + "<br><br><strong>" + relT("Detalhe:") + "</strong> " + relT(erro.message), relT("Erro no banco"));
@@ -5150,7 +5150,12 @@
             <td>${u.usuario || "-"}</td>
             <td>${u.perfil || "-"}</td>
             <td>${Number(u.ativo) === 1 ? "Ativo" : "Inativo"}</td>
-            <td><button class="action-btn full secondary" type="button" onclick='editarUsuarioTecnico(${JSON.stringify(u)})'>Editar</button></td>
+            <td>
+              <div class="historico-acoes">
+                <button class="action-btn full secondary" type="button" onclick='editarUsuarioTecnico(${JSON.stringify(u)})'>Editar</button>
+                <button class="action-btn full danger" type="button" onclick="excluirUsuarioTecnico(${u.id}, '${String(u.nome || u.usuario || '').replace(/'/g, "\'")}')">Excluir</button>
+              </div>
+            </td>
           </tr>
         `).join("");
       } catch (erro) {
@@ -5166,6 +5171,32 @@
       if (el("usuarioPerfilCadastro")) el("usuarioPerfilCadastro").value = usuario.perfil || "TECNICO";
       if (el("usuarioAtivoCadastro")) el("usuarioAtivoCadastro").value = String(Number(usuario.ativo) === 1 ? 1 : 0);
       mostrarPopup("Edite os dados e clique em Salvar usuário. Para manter a senha atual, deixe o campo senha vazio.", "Usuários / Técnicos");
+    }
+
+    async function excluirUsuarioTecnico(id, nome) {
+      if (!id) return;
+
+      const confirmar = await abrirPopupSistema({
+        titulo: "Excluir usuário",
+        subtitulo: "Usuários / Técnicos",
+        mensagem: "Tem certeza que deseja excluir este usuário?<br><br><strong>Usuário:</strong> " + (nome || id) + "<br><br>Os ensaios já salvos não serão apagados; eles apenas ficarão sem vínculo com esse usuário.",
+        mostrarCancelar: true,
+        textoConfirmar: "Sim, excluir",
+        textoCancelar: "Cancelar"
+      });
+
+      if (!confirmar) return;
+
+      try {
+        const resposta = await fetch("/api/usuarios/" + id, { method: "DELETE" });
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || "Falha ao excluir usuário.");
+        mostrarPopup("Usuário excluído com sucesso.", "Usuários / Técnicos");
+        limparFormularioUsuario();
+        carregarUsuariosTecnicos();
+      } catch (erro) {
+        mostrarPopup("Não foi possível excluir o usuário.<br><br><strong>Detalhe:</strong> " + erro.message, "Usuários / Técnicos");
+      }
     }
 
     async function salvarUsuarioTecnico() {
