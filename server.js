@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const session = require("express-session");
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT || 3004);
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -176,7 +177,12 @@ app.post("/api/login", async (req, res) => {
     }
 
     req.session.usuario = respostaUsuario(registro);
-    res.json({ ok: true, usuario: req.session.usuario });
+    req.session.save((erroSessao) => {
+      if (erroSessao) {
+        return res.status(500).json({ erro: "Falha ao salvar sessão de login." });
+      }
+      res.json({ ok: true, usuario: req.session.usuario });
+    });
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
   }
