@@ -1,11 +1,10 @@
 {
-  "name": "capabilidade-ws-postgresql-render",
+  "name": "capabilidade_ws_postgresql",
   "version": "1.0.0",
   "description": "Sistema de Capabilidade WS com histórico em PostgreSQL no Render",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "reset-admin": "node reset_admin.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
