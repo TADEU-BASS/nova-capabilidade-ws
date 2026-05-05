@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
-const mysql = require("mysql2/promise");
+const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const session = require("express-session");
 
@@ -10,16 +10,9 @@ const app = express();
 const PORT = Number(process.env.PORT || 3004);
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "capabilidade_ws",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  dateStrings: true
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: IS_PRODUCTION ? { rejectUnauthorized: false } : false
 });
 
 app.use(express.json({ limit: "25mb" }));
@@ -134,14 +127,14 @@ function extrairResumo(estado) {
 }
 
 async function buscarUsuarioPorNome(usuario) {
-  const [linhas] = await pool.execute(
+  const resultado = await pool.query(
     `SELECT id, nome, usuario, senha_hash, perfil, ativo
      FROM usuarios
-     WHERE usuario = ?
+     WHERE usuario = $1
      LIMIT 1`,
     [texto(usuario)]
   );
-  return linhas[0] || null;
+  return resultado.rows[0] || null;
 }
 
 function respostaUsuario(usuario) {
@@ -150,14 +143,14 @@ function respostaUsuario(usuario) {
     nome: usuario.nome,
     usuario: usuario.usuario,
     perfil: usuario.perfil,
-    ativo: Number(usuario.ativo) === 1
+    ativo: usuario.ativo === true || Number(usuario.ativo) === 1
   };
 }
 
 app.get("/api/status-db", async (_req, res) => {
   try {
     await pool.query("SELECT 1 AS ok");
-    res.json({ ok: true, mensagem: "Conexão com MySQL OK" });
+    res.json({ ok: true, mensagem: "Conexão com PostgreSQL OK" });
   } catch (erro) {
     res.status(500).json({ ok: false, erro: erro.message });
   }
@@ -173,7 +166,7 @@ app.post("/api/login", async (req, res) => {
     }
 
     const registro = await buscarUsuarioPorNome(usuario);
-    if (!registro || Number(registro.ativo) !== 1) {
+    if (!registro || !(registro.ativo === true || Number(registro.ativo) === 1)) {
       return res.status(401).json({ erro: "Usuário ou senha inválidos." });
     }
 
@@ -204,12 +197,12 @@ app.post("/api/logout", (req, res) => {
 
 app.get("/api/usuarios", exigirAdmin, async (_req, res) => {
   try {
-    const [linhas] = await pool.execute(
+    const resultado = await pool.query(
       `SELECT id, nome, usuario, perfil, ativo, criado_em
        FROM usuarios
        ORDER BY nome ASC`
     );
-    res.json(linhas);
+    res.json(resultado.rows);
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
   }
@@ -227,15 +220,16 @@ app.post("/api/usuarios", exigirAdmin, async (req, res) => {
     }
 
     const senhaHash = await bcrypt.hash(senha, 10);
-    const [resultado] = await pool.execute(
+    const resultado = await pool.query(
       `INSERT INTO usuarios (nome, usuario, senha_hash, perfil, ativo)
-       VALUES (?, ?, ?, ?, 1)`,
+       VALUES ($1, $2, $3, $4, true)
+       RETURNING id`,
       [nome, usuario, senhaHash, perfil]
     );
 
-    res.json({ ok: true, id: resultado.insertId, mensagem: "Usuário cadastrado." });
+    res.json({ ok: true, id: resultado.rows[0].id, mensagem: "Usuário cadastrado." });
   } catch (erro) {
-    if (erro && erro.code === "ER_DUP_ENTRY") {
+    if (erro && erro.code === "23505") {
       return res.status(409).json({ erro: "Este nome de usuário já existe." });
     }
     res.status(500).json({ erro: erro.message });
@@ -249,7 +243,7 @@ app.put("/api/usuarios/:id", exigirAdmin, async (req, res) => {
     const usuario = texto(req.body?.usuario);
     const senha = texto(req.body?.senha);
     const perfil = texto(req.body?.perfil).toUpperCase() === "ADMIN" ? "ADMIN" : "TECNICO";
-    const ativo = Number(req.body?.ativo) === 0 ? 0 : 1;
+    const ativo = Number(req.body?.ativo) === 0 ? false : true;
 
     if (!id || !nome || !usuario) {
       return res.status(400).json({ erro: "Nome e usuário são obrigatórios." });
@@ -257,24 +251,24 @@ app.put("/api/usuarios/:id", exigirAdmin, async (req, res) => {
 
     if (senha) {
       const senhaHash = await bcrypt.hash(senha, 10);
-      await pool.execute(
+      await pool.query(
         `UPDATE usuarios
-         SET nome = ?, usuario = ?, senha_hash = ?, perfil = ?, ativo = ?
-         WHERE id = ?`,
+         SET nome = $1, usuario = $2, senha_hash = $3, perfil = $4, ativo = $5
+         WHERE id = $6`,
         [nome, usuario, senhaHash, perfil, ativo, id]
       );
     } else {
-      await pool.execute(
+      await pool.query(
         `UPDATE usuarios
-         SET nome = ?, usuario = ?, perfil = ?, ativo = ?
-         WHERE id = ?`,
+         SET nome = $1, usuario = $2, perfil = $3, ativo = $4
+         WHERE id = $5`,
         [nome, usuario, perfil, ativo, id]
       );
     }
 
     res.json({ ok: true, mensagem: "Usuário atualizado." });
   } catch (erro) {
-    if (erro && erro.code === "ER_DUP_ENTRY") {
+    if (erro && erro.code === "23505") {
       return res.status(409).json({ erro: "Este nome de usuário já existe." });
     }
     res.status(500).json({ erro: erro.message });
@@ -297,26 +291,24 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
       return res.status(400).json({ erro: "Data do ensaio é obrigatória e deve estar no formato AAAA-MM-DD." });
     }
 
-    const dadosJson = JSON.stringify(estado);
-
-    const [existentes] = await pool.execute(
-      "SELECT id, usuario_id FROM ensaios WHERE numero_relatorio = ? LIMIT 1",
+    const resultadoExistentes = await pool.query(
+      "SELECT id, usuario_id FROM ensaios WHERE numero_relatorio = $1 LIMIT 1",
       [resumo.numeroRelatorio]
     );
 
-    if (existentes.length) {
-      const ensaioExistente = existentes[0];
+    if (resultadoExistentes.rows.length) {
+      const ensaioExistente = resultadoExistentes.rows[0];
       if (usuarioLogado.perfil !== "ADMIN" && Number(ensaioExistente.usuario_id) !== Number(usuarioLogado.id)) {
         return res.status(403).json({ erro: "Você só pode alterar ensaios cadastrados pelo seu usuário." });
       }
 
       const usuarioDono = ensaioExistente.usuario_id || usuarioLogado.id;
-      await pool.execute(
+      await pool.query(
         `UPDATE ensaios
-         SET usuario_id = ?, tecnico_responsavel = ?, data_ensaio = ?, cliente_projeto = ?,
-             serial_apertadeira = ?, serial_crowfoot = ?, tipo_ensaio = ?, status_final = ?,
-             dados_json = ?, atualizado_em = CURRENT_TIMESTAMP
-         WHERE id = ?`,
+         SET usuario_id = $1, tecnico_responsavel = $2, data_ensaio = $3, cliente_projeto = $4,
+             serial_apertadeira = $5, serial_crowfoot = $6, tipo_ensaio = $7, status_final = $8,
+             dados_json = $9::jsonb, atualizado_em = CURRENT_TIMESTAMP
+         WHERE id = $10`,
         [
           usuarioDono,
           resumo.tecnicoResponsavel,
@@ -326,7 +318,7 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
           resumo.serialCrowfoot,
           resumo.tipoEnsaio,
           resumo.statusFinal,
-          dadosJson,
+          JSON.stringify(estado),
           ensaioExistente.id
         ]
       );
@@ -335,14 +327,15 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
         ok: true,
         id: ensaioExistente.id,
         numero_relatorio: resumo.numeroRelatorio,
-        mensagem: "Ensaio atualizado no banco MySQL."
+        mensagem: "Ensaio atualizado no banco PostgreSQL."
       });
     }
 
-    const [resultado] = await pool.execute(
+    const resultado = await pool.query(
       `INSERT INTO ensaios
         (usuario_id, numero_relatorio, tecnico_responsavel, data_ensaio, cliente_projeto, serial_apertadeira, serial_crowfoot, tipo_ensaio, status_final, dados_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
+       RETURNING id`,
       [
         usuarioLogado.id,
         resumo.numeroRelatorio,
@@ -353,15 +346,15 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
         resumo.serialCrowfoot,
         resumo.tipoEnsaio,
         resumo.statusFinal,
-        dadosJson
+        JSON.stringify(estado)
       ]
     );
 
     res.json({
       ok: true,
-      id: resultado.insertId || null,
+      id: resultado.rows[0].id,
       numero_relatorio: resumo.numeroRelatorio,
-      mensagem: "Ensaio salvo no banco MySQL."
+      mensagem: "Ensaio salvo no banco PostgreSQL."
     });
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
@@ -374,44 +367,42 @@ app.get("/api/ensaios", exigirLogin, async (req, res) => {
     const filtros = [];
     const valores = [];
 
+    function addFiltro(sql, valor) {
+      valores.push(valor);
+      filtros.push(sql.replace("?", `$${valores.length}`));
+    }
+
     if (usuarioLogado.perfil !== "ADMIN") {
-      filtros.push("e.usuario_id = ?");
-      valores.push(usuarioLogado.id);
+      addFiltro("e.usuario_id = ?", usuarioLogado.id);
     }
 
     if (texto(req.query.numeroRelatorio)) {
-      filtros.push("e.numero_relatorio LIKE ?");
-      valores.push(`%${texto(req.query.numeroRelatorio)}%`);
+      addFiltro("e.numero_relatorio ILIKE ?", `%${texto(req.query.numeroRelatorio)}%`);
     }
     if (texto(req.query.tecnicoResponsavel)) {
-      filtros.push("e.tecnico_responsavel LIKE ?");
-      valores.push(`%${texto(req.query.tecnicoResponsavel)}%`);
+      addFiltro("e.tecnico_responsavel ILIKE ?", `%${texto(req.query.tecnicoResponsavel)}%`);
     }
     if (texto(req.query.clienteProjeto)) {
-      filtros.push("e.cliente_projeto LIKE ?");
-      valores.push(`%${texto(req.query.clienteProjeto)}%`);
+      addFiltro("e.cliente_projeto ILIKE ?", `%${texto(req.query.clienteProjeto)}%`);
     }
     if (texto(req.query.serialApertadeira)) {
-      filtros.push("e.serial_apertadeira LIKE ?");
-      valores.push(`%${texto(req.query.serialApertadeira)}%`);
+      addFiltro("e.serial_apertadeira ILIKE ?", `%${texto(req.query.serialApertadeira)}%`);
     }
     if (texto(req.query.serialCrowfoot)) {
-      filtros.push("e.serial_crowfoot LIKE ?");
-      valores.push(`%${texto(req.query.serialCrowfoot)}%`);
+      addFiltro("e.serial_crowfoot ILIKE ?", `%${texto(req.query.serialCrowfoot)}%`);
     }
     if (normalizarData(req.query.dataInicio)) {
-      filtros.push("e.data_ensaio >= ?");
-      valores.push(normalizarData(req.query.dataInicio));
+      addFiltro("e.data_ensaio >= ?", normalizarData(req.query.dataInicio));
     }
     if (normalizarData(req.query.dataFim)) {
-      filtros.push("e.data_ensaio <= ?");
-      valores.push(normalizarData(req.query.dataFim));
+      addFiltro("e.data_ensaio <= ?", normalizarData(req.query.dataFim));
     }
 
     const where = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
 
-    const [linhas] = await pool.execute(
-      `SELECT e.id, e.numero_relatorio, e.tecnico_responsavel, e.data_ensaio,
+    const resultado = await pool.query(
+      `SELECT e.id, e.numero_relatorio, e.tecnico_responsavel,
+              TO_CHAR(e.data_ensaio, 'YYYY-MM-DD') AS data_ensaio,
               e.cliente_projeto, e.serial_apertadeira, e.serial_crowfoot, e.tipo_ensaio, e.status_final,
               e.criado_em, e.atualizado_em, u.nome AS dono_ensaio
        FROM ensaios e
@@ -422,7 +413,7 @@ app.get("/api/ensaios", exigirLogin, async (req, res) => {
       valores
     );
 
-    res.json(linhas);
+    res.json(resultado.rows);
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
   }
@@ -431,30 +422,31 @@ app.get("/api/ensaios", exigirLogin, async (req, res) => {
 app.get("/api/ensaios/:id", exigirLogin, async (req, res) => {
   try {
     const usuarioLogado = usuarioSessao(req);
-    const filtros = ["e.id = ?"];
+    const filtros = ["e.id = $1"];
     const valores = [req.params.id];
 
     if (usuarioLogado.perfil !== "ADMIN") {
-      filtros.push("e.usuario_id = ?");
       valores.push(usuarioLogado.id);
+      filtros.push(`e.usuario_id = $${valores.length}`);
     }
 
-    const [linhas] = await pool.execute(
-      `SELECT e.id, e.numero_relatorio, e.tecnico_responsavel, e.data_ensaio,
+    const resultado = await pool.query(
+      `SELECT e.id, e.numero_relatorio, e.tecnico_responsavel,
+              TO_CHAR(e.data_ensaio, 'YYYY-MM-DD') AS data_ensaio,
               e.cliente_projeto, e.serial_apertadeira, e.serial_crowfoot, e.tipo_ensaio, e.status_final, e.dados_json
        FROM ensaios e
        WHERE ${filtros.join(" AND ")}`,
       valores
     );
 
-    if (!linhas.length) {
+    if (!resultado.rows.length) {
       return res.status(404).json({ erro: "Ensaio não encontrado ou sem permissão de acesso." });
     }
 
-    const ensaio = linhas[0];
+    const ensaio = resultado.rows[0];
     res.json({
       ...ensaio,
-      dados: JSON.parse(ensaio.dados_json)
+      dados: typeof ensaio.dados_json === "string" ? JSON.parse(ensaio.dados_json) : ensaio.dados_json
     });
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
@@ -467,8 +459,8 @@ app.delete("/api/ensaios/:id", exigirAdmin, async (req, res) => {
       return res.status(403).json({ erro: "Senha obrigatória para excluir ensaio." });
     }
 
-    const [resultado] = await pool.execute("DELETE FROM ensaios WHERE id = ?", [req.params.id]);
-    if (!resultado.affectedRows) {
+    const resultado = await pool.query("DELETE FROM ensaios WHERE id = $1", [req.params.id]);
+    if (!resultado.rowCount) {
       return res.status(404).json({ erro: "Ensaio não encontrado." });
     }
     res.json({ ok: true, mensagem: "Ensaio excluído." });
@@ -477,90 +469,74 @@ app.delete("/api/ensaios/:id", exigirAdmin, async (req, res) => {
   }
 });
 
-async function colunaExiste(tabela, coluna) {
-  const [linhas] = await pool.execute(
-    `SELECT COLUMN_NAME
-     FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = ?
-       AND COLUMN_NAME = ?
-     LIMIT 1`,
-    [tabela, coluna]
-  );
-  return linhas.length > 0;
-}
-
-async function indiceExiste(tabela, indice) {
-  const [linhas] = await pool.execute(
-    `SELECT INDEX_NAME
-     FROM INFORMATION_SCHEMA.STATISTICS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = ?
-       AND INDEX_NAME = ?
-     LIMIT 1`,
-    [tabela, indice]
-  );
-  return linhas.length > 0;
-}
-
 async function garantirEstruturaBanco() {
   try {
-    await pool.execute(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS usuarios (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         nome VARCHAR(150) NOT NULL,
         usuario VARCHAR(80) NOT NULL UNIQUE,
         senha_hash VARCHAR(255) NOT NULL,
-        perfil ENUM('TECNICO', 'ADMIN') DEFAULT 'TECNICO',
-        ativo TINYINT(1) DEFAULT 1,
+        perfil VARCHAR(20) NOT NULL DEFAULT 'TECNICO' CHECK (perfil IN ('TECNICO', 'ADMIN')),
+        ativo BOOLEAN DEFAULT true,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    if (!(await colunaExiste("ensaios", "usuario_id"))) {
-      await pool.execute("ALTER TABLE ensaios ADD COLUMN usuario_id INT NULL AFTER id");
-      console.log("Coluna usuario_id criada na tabela ensaios.");
-    }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ensaios (
+        id SERIAL PRIMARY KEY,
+        usuario_id INTEGER NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+        numero_relatorio VARCHAR(120) NOT NULL UNIQUE,
+        tecnico_responsavel VARCHAR(150) NOT NULL,
+        data_ensaio DATE NOT NULL,
+        cliente_projeto VARCHAR(150),
+        serial_apertadeira VARCHAR(150),
+        serial_crowfoot VARCHAR(150),
+        tipo_ensaio VARCHAR(50),
+        status_final VARCHAR(80),
+        dados_json JSONB NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    if (!(await colunaExiste("ensaios", "cliente_projeto"))) {
-      await pool.execute("ALTER TABLE ensaios ADD COLUMN cliente_projeto VARCHAR(150) NULL AFTER data_ensaio");
-      console.log("Coluna cliente_projeto criada na tabela ensaios.");
-    }
+    await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS usuario_id INTEGER NULL REFERENCES usuarios(id) ON DELETE SET NULL");
+    await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS cliente_projeto VARCHAR(150)");
+    await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS serial_crowfoot VARCHAR(150)");
+    await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
-    if (!(await indiceExiste("ensaios", "idx_ensaios_usuario_id"))) {
-      await pool.execute("CREATE INDEX idx_ensaios_usuario_id ON ensaios (usuario_id)");
-      console.log("Índice idx_ensaios_usuario_id criado.");
-    }
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_usuario_id ON ensaios (usuario_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_cliente_projeto ON ensaios (cliente_projeto)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_data_ensaio ON ensaios (data_ensaio)");
 
-    if (!(await indiceExiste("ensaios", "idx_ensaios_cliente_projeto"))) {
-      await pool.execute("CREATE INDEX idx_ensaios_cliente_projeto ON ensaios (cliente_projeto)");
-      console.log("Índice idx_ensaios_cliente_projeto criado.");
-    }
-
-    const [admins] = await pool.execute("SELECT id FROM usuarios WHERE perfil = 'ADMIN' LIMIT 1");
-    if (!admins.length) {
+    const admins = await pool.query("SELECT id FROM usuarios WHERE perfil = 'ADMIN' LIMIT 1");
+    if (!admins.rows.length) {
       const adminUser = texto(process.env.ADMIN_USER) || "admin";
       const adminName = texto(process.env.ADMIN_NAME) || "Administrador";
       const adminPass = texto(process.env.ADMIN_PASSWORD) || senhaAdminConfigurada();
       const senhaHash = await bcrypt.hash(adminPass, 10);
-      await pool.execute(
-        "INSERT INTO usuarios (nome, usuario, senha_hash, perfil, ativo) VALUES (?, ?, ?, 'ADMIN', 1)",
+      await pool.query(
+        "INSERT INTO usuarios (nome, usuario, senha_hash, perfil, ativo) VALUES ($1, $2, $3, 'ADMIN', true)",
         [adminName, adminUser, senhaHash]
       );
       console.log(`Usuário ADMIN inicial criado: ${adminUser}`);
     }
 
-    const [tecnicos] = await pool.execute("SELECT id FROM usuarios WHERE perfil = 'TECNICO' LIMIT 1");
-    if (!tecnicos.length) {
+    const tecnicos = await pool.query("SELECT id FROM usuarios WHERE perfil = 'TECNICO' LIMIT 1");
+    if (!tecnicos.rows.length) {
       const senhaHash = await bcrypt.hash("1234", 10);
-      await pool.execute(
-        "INSERT INTO usuarios (nome, usuario, senha_hash, perfil, ativo) VALUES (?, ?, ?, 'TECNICO', 1)",
+      await pool.query(
+        "INSERT INTO usuarios (nome, usuario, senha_hash, perfil, ativo) VALUES ($1, $2, $3, 'TECNICO', true)",
         ["Marcos Tadeu Silva", "marcos", senhaHash]
       );
       console.log("Usuário técnico inicial criado: marcos / 1234");
     }
+
+    console.log("Estrutura do banco PostgreSQL verificada com sucesso.");
   } catch (erro) {
     console.error("Falha ao verificar/ajustar estrutura do banco:", erro.message);
+    throw erro;
   }
 }
 
@@ -568,4 +544,7 @@ garantirEstruturaBanco().then(() => {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Servidor rodando na porta ${PORT}`);
   });
+}).catch((erro) => {
+  console.error("Erro ao iniciar o servidor:", erro.message);
+  process.exit(1);
 });
