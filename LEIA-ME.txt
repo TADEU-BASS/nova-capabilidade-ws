@@ -1,0 +1,37 @@
+CAPABILIDADE WS - MYSQL - LOGIN POR TÉCNICO
+
+1) Instale os pacotes:
+   npm install
+
+2) Configure o arquivo .env:
+   Copie .env.example para .env e preencha DB_PASSWORD.
+
+3) Crie/atualize o banco:
+   mysql -u root -p < database.sql
+
+   Se o banco já existia, não precisa apagar nada. O server.js também tenta criar automaticamente:
+   - tabela usuarios
+   - coluna ensaios.usuario_id
+   - coluna ensaios.cliente_projeto
+
+4) Inicie:
+   npm start
+
+5) Acesse:
+   http://localhost:3004
+
+LOGIN INICIAL:
+   Administrador:
+     usuário: admin
+     senha: 1234
+
+   Técnico inicial:
+     usuário: marcos
+     senha: 1234
+
+IMPORTANTE:
+- Troque as senhas após o primeiro acesso.
+- Cada técnico vê somente os ensaios salvos pelo seu próprio usuário.
+- Administrador vê todos os ensaios e pode cadastrar técnicos.
+- Excluir ensaio exige perfil ADMIN e a senha APP_ADMIN_PASSWORD do .env.
+- No Render, coloque DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT, SESSION_SECRET, ADMIN_USER, ADMIN_PASSWORD e APP_ADMIN_PASSWORD nas Environment Variables.
