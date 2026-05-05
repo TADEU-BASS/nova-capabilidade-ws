@@ -281,6 +281,48 @@ app.put("/api/usuarios/:id", exigirAdmin, async (req, res) => {
   }
 });
 
+
+app.delete("/api/usuarios/:id", exigirAdmin, async (req, res) => {
+  try {
+    const usuarioLogado = usuarioSessao(req);
+    const id = Number(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({ erro: "ID do usuário inválido." });
+    }
+
+    if (Number(usuarioLogado.id) === id) {
+      return res.status(400).json({ erro: "Você não pode excluir o próprio usuário logado." });
+    }
+
+    const usuarioAlvo = await pool.query(
+      "SELECT id, nome, usuario, perfil FROM usuarios WHERE id = $1 LIMIT 1",
+      [id]
+    );
+
+    if (!usuarioAlvo.rows.length) {
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    if (usuarioAlvo.rows[0].perfil === "ADMIN") {
+      const totalAdmins = await pool.query(
+        "SELECT COUNT(*)::int AS total FROM usuarios WHERE perfil = 'ADMIN' AND ativo = true"
+      );
+
+      if (Number(totalAdmins.rows[0].total) <= 1) {
+        return res.status(400).json({ erro: "Não é permitido excluir o último administrador ativo." });
+      }
+    }
+
+    await pool.query("UPDATE ensaios SET usuario_id = NULL WHERE usuario_id = $1", [id]);
+    await pool.query("DELETE FROM usuarios WHERE id = $1", [id]);
+
+    res.json({ ok: true, mensagem: "Usuário excluído com sucesso." });
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message });
+  }
+});
+
 app.post("/api/ensaios", exigirLogin, async (req, res) => {
   try {
     const usuarioLogado = usuarioSessao(req);
