@@ -1,22 +1,28 @@
-CAPABILIDADE WS - Versao pronta para Render
+CAPABILIDADE WS - Versão corrigida para Render + PostgreSQL
 
-1. Suba estes arquivos para o GitHub.
-2. No Render, crie um Web Service.
-3. Configure:
+1. Suba estes arquivos para o GitHub, substituindo os arquivos antigos.
+
+2. No Render, no Web Service do app, configure:
    Build Command: npm install
    Start Command: npm start
 
-4. Cadastre as variaveis de ambiente no Render:
-   DB_HOST=seu_host_mysql
-   DB_USER=seu_usuario_mysql
-   DB_PASSWORD=sua_senha_mysql
-   DB_NAME=capabilidade_ws
-   DB_PORT=3306
-   APP_ADMIN_PASSWORD=senha_para_excluir
+3. No Render, cadastre as Environment Variables:
+   DATABASE_URL=Internal Database URL do PostgreSQL criado no Render
+   NODE_ENV=production
+   APP_ADMIN_PASSWORD=senha_para_excluir_ensaio
    SESSION_SECRET=uma_frase_grande_e_segura
    ADMIN_USER=admin
-   ADMIN_PASSWORD=senha_admin_inicial
+   ADMIN_PASSWORD=1234
    ADMIN_NAME=Administrador
-   NODE_ENV=production
 
-Nao envie o arquivo .env para o GitHub.
+4. Não envie o arquivo .env real para o GitHub.
+   Envie somente o .env.example.
+
+5. Depois de subir para o GitHub, no Render faça:
+   Manual Deploy > Deploy latest commit
+
+6. Para testar a conexão com o banco, acesse:
+   /api/status-db
+
+Se estiver correto, aparecerá:
+   { "ok": true, "mensagem": "Conexão com PostgreSQL OK" }

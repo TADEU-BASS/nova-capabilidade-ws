@@ -1,17 +1,18 @@
 {
-  "name": "capabilidade_ws_mysql",
+  "name": "capabilidade-ws-postgresql-render",
   "version": "1.0.0",
-  "description": "Sistema de Capabilidade WS com histórico em MySQL",
+  "description": "Sistema de Capabilidade WS com histórico em PostgreSQL no Render",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "reset-admin": "node reset_admin.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
-    "mysql2": "^3.11.5",
-    "bcrypt": "^5.1.1",
-    "express-session": "^1.18.1"
+    "express-session": "^1.18.1",
+    "pg": "^8.13.1"
   },
   "keywords": [],
   "author": "Marcos Tadeu Silva",
