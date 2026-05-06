@@ -487,25 +487,56 @@ app.get("/api/ensaios", exigirLogin, async (req, res) => {
   }
 });
 
-app.get("/api/ensaios/:id", exigirAdmin, async (req, res) => {
+app.get("/api/ensaios/:id", exigirLogin, async (req, res) => {
   try {
+    const usuarioLogado = usuarioSessao(req);
+    const id = Number(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({ erro: "ID do ensaio inválido." });
+    }
+
+    const valores = [id];
+    let filtroPermissao = "";
+
+    // Técnico só pode abrir os ensaios que pertencem ao próprio usuário.
+    // Administrador pode abrir qualquer ensaio.
+    if (usuarioLogado.perfil !== "ADMIN") {
+      valores.push(usuarioLogado.id);
+      filtroPermissao = " AND e.usuario_id = $2";
+    }
+
     const resultado = await pool.query(
-      `SELECT e.id, e.numero_relatorio, e.tecnico_responsavel,
+      `SELECT e.id, e.usuario_id, e.numero_relatorio, e.tecnico_responsavel,
               TO_CHAR(e.data_ensaio, 'YYYY-MM-DD') AS data_ensaio,
               e.cliente_projeto, e.serial_apertadeira, e.serial_crowfoot, e.tipo_ensaio, e.status_final, e.dados_json
        FROM ensaios e
-       WHERE e.id = $1`,
-      [req.params.id]
+       WHERE e.id = $1${filtroPermissao}
+       LIMIT 1`,
+      valores
     );
 
     if (!resultado.rows.length) {
-      return res.status(404).json({ erro: "Ensaio não encontrado." });
+      return res.status(404).json({
+        erro: usuarioLogado.perfil === "ADMIN"
+          ? "Ensaio não encontrado."
+          : "Ensaio não encontrado ou sem permissão para este usuário."
+      });
     }
 
     const ensaio = resultado.rows[0];
+    const dados = typeof ensaio.dados_json === "string"
+      ? JSON.parse(ensaio.dados_json)
+      : ensaio.dados_json;
+
     res.json({
       ...ensaio,
-      dados: typeof ensaio.dados_json === "string" ? JSON.parse(ensaio.dados_json) : ensaio.dados_json
+      dados,
+      modo_consulta: usuarioLogado.perfil !== "ADMIN",
+      pode_editar: usuarioLogado.perfil === "ADMIN",
+      mensagem: usuarioLogado.perfil === "ADMIN"
+        ? "Ensaio aberto para edição pelo administrador."
+        : "Ensaio aberto em modo consulta. Somente administrador pode editar ensaio já gravado."
     });
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
