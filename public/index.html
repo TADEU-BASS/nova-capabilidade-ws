@@ -771,6 +771,36 @@
       outline: none;
       margin-bottom: 12px;
     }
+    .senha-login-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .senha-login-wrap input {
+      margin-bottom: 0;
+      padding-right: 48px;
+    }
+    .toggle-senha-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 34px;
+      height: 34px;
+      border: none;
+      border-radius: 10px;
+      background: #eef8fc;
+      color: #0f5f7d;
+      font-size: 17px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: .2s;
+    }
+    .toggle-senha-btn:hover {
+      background: #d7eef8;
+      transform: translateY(-50%) scale(1.03);
+    }
     .login-erro { min-height: 20px; color: #d93b3b; font-weight: 800; font-size: 13px; text-align: center; margin-top: 8px; }
     .app.bloqueado { display: none; }
     .usuario-logado-box {
@@ -838,7 +868,10 @@
         <label for="loginUsuario">Usuário</label>
         <input type="text" id="loginUsuario" autocomplete="username" placeholder="Ex.: marcos">
         <label for="loginSenha">Senha</label>
-        <input type="password" id="loginSenha" autocomplete="current-password" placeholder="Digite sua senha">
+        <div class="senha-login-wrap">
+          <input type="password" id="loginSenha" autocomplete="current-password" placeholder="Digite sua senha">
+          <button class="toggle-senha-btn" type="button" onclick="alternarVisibilidadeSenha('loginSenha', this)" aria-label="Mostrar senha" title="Mostrar senha">👁️</button>
+        </div>
         <button class="menu-btn" type="button" onclick="fazerLogin()">Entrar</button>
         <div id="loginErro" class="login-erro"></div>
       </div>
@@ -5117,6 +5150,21 @@
 
 
     let usuarioAtualSistema = null;
+    let tentativasLoginErradas = 0;
+    const LIMITE_TENTATIVAS_LOGIN = 5;
+    const MENSAGEM_LIMITE_LOGIN = "Senha digitada errada por 5 vezes, entrar em contato com administrador";
+
+    function alternarVisibilidadeSenha(idCampo, botao) {
+      const campo = el(idCampo);
+      if (!campo) return;
+      const mostrar = campo.type === "password";
+      campo.type = mostrar ? "text" : "password";
+      if (botao) {
+        botao.textContent = mostrar ? "🙈" : "👁️";
+        botao.setAttribute("aria-label", mostrar ? "Ocultar senha" : "Mostrar senha");
+        botao.setAttribute("title", mostrar ? "Ocultar senha" : "Mostrar senha");
+      }
+    }
 
     function mostrarLogin(mensagem = "") {
       usuarioAtualSistema = null;
@@ -5126,6 +5174,14 @@
       if (appRoot) appRoot.classList.add("bloqueado");
       if (loginScreen) loginScreen.style.display = "flex";
       if (el("loginErro")) el("loginErro").textContent = mensagem;
+      const senhaLogin = el("loginSenha");
+      if (senhaLogin) senhaLogin.type = "password";
+      const botaoSenha = document.querySelector(".toggle-senha-btn");
+      if (botaoSenha) {
+        botaoSenha.textContent = "👁️";
+        botaoSenha.setAttribute("aria-label", "Mostrar senha");
+        botaoSenha.setAttribute("title", "Mostrar senha");
+      }
     }
 
     function aplicarUsuarioSistema(usuario) {
@@ -5169,10 +5225,15 @@
         });
         const dados = await resposta.json();
         if (!resposta.ok) throw new Error(dados.erro || "Falha no login.");
+        tentativasLoginErradas = 0;
         aplicarUsuarioSistema(dados.usuario);
         if (el("loginSenha")) el("loginSenha").value = "";
       } catch (erro) {
-        if (el("loginErro")) el("loginErro").textContent = erro.message;
+        tentativasLoginErradas += 1;
+        const mensagem = tentativasLoginErradas >= LIMITE_TENTATIVAS_LOGIN
+          ? MENSAGEM_LIMITE_LOGIN
+          : (erro.message || "Senha incorreta.");
+        if (el("loginErro")) el("loginErro").textContent = mensagem;
       }
     }
 
@@ -5309,7 +5370,23 @@
       const seletorIdioma = el("seletorIdioma");
       if (seletorIdioma) seletorIdioma.value = idiomaSalvo;
       alterarIdioma(idiomaSalvo);
-      verificarSessaoLogin();
+      
+
+    const loginSenhaCampo = el("loginSenha");
+    if (loginSenhaCampo) {
+      loginSenhaCampo.addEventListener("keydown", (evento) => {
+        if (evento.key === "Enter") fazerLogin();
+      });
+    }
+
+    const loginUsuarioCampo = el("loginUsuario");
+    if (loginUsuarioCampo) {
+      loginUsuarioCampo.addEventListener("keydown", (evento) => {
+        if (evento.key === "Enter") fazerLogin();
+      });
+    }
+
+    verificarSessaoLogin();
       ["loginUsuario", "loginSenha"].forEach(id => {
         const campo = el(id);
         if (campo) campo.addEventListener("keydown", ev => { if (ev.key === "Enter") fazerLogin(); });
