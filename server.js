@@ -45,6 +45,27 @@ function normalizarData(valor) {
   return /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : null;
 }
 
+function formatarDataBR(data) {
+  if (!data) return null;
+  const d = new Date(data);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function calcularPrazoEdicao(criadoEm) {
+  const inicio = criadoEm ? new Date(criadoEm) : new Date();
+  const prazo = new Date(inicio.getTime() + 15 * 24 * 60 * 60 * 1000);
+  const agora = new Date();
+  const msRestantes = prazo.getTime() - agora.getTime();
+  const diasRestantes = Math.max(0, Math.ceil(msRestantes / (24 * 60 * 60 * 1000)));
+  return {
+    prazo,
+    prazoFormatado: formatarDataBR(prazo),
+    diasRestantes,
+    expirado: msRestantes < 0
+  };
+}
+
 function senhaAdminConfigurada() {
   return texto(process.env.APP_ADMIN_PASSWORD || process.env.SENHA_ADMIN_BANCO) || "1234";
 }
@@ -360,13 +381,28 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
     }
 
     const resultadoExistentes = await pool.query(
-      "SELECT id, usuario_id FROM ensaios WHERE numero_relatorio = $1 LIMIT 1",
+      "SELECT id, usuario_id, criado_em FROM ensaios WHERE numero_relatorio = $1 LIMIT 1",
       [resumo.numeroRelatorio]
     );
 
     if (resultadoExistentes.rows.length) {
       const ensaioExistente = resultadoExistentes.rows[0];
       const usuarioDono = ensaioExistente.usuario_id || usuarioLogado.id;
+      const prazoEdicao = calcularPrazoEdicao(ensaioExistente.criado_em);
+
+      if (usuarioLogado.perfil !== "ADMIN") {
+        if (ensaioExistente.usuario_id && Number(ensaioExistente.usuario_id) !== Number(usuarioLogado.id)) {
+          return res.status(403).json({
+            erro: "Técnico só pode editar ensaios salvos pelo próprio usuário."
+          });
+        }
+
+        if (prazoEdicao.expirado) {
+          return res.status(403).json({
+            erro: `Prazo de edição encerrado. Técnicos podem editar o ensaio por até 15 dias após o primeiro salvamento. Prazo encerrado em ${prazoEdicao.prazoFormatado || "data não identificada"}. Para alterar este ensaio, entre em contato com um administrador.`
+          });
+        }
+      }
 
       await pool.query(
         `UPDATE ensaios
@@ -395,6 +431,8 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
         id: ensaioExistente.id,
         numero_relatorio: resumo.numeroRelatorio,
         status_edicao: "EDITADA",
+        prazo_edicao_ate: prazoEdicao.prazoFormatado,
+        dias_restantes_edicao: prazoEdicao.diasRestantes,
         mensagem: "Ensaio atualizado no banco PostgreSQL e marcado como EDITADA."
       });
     }
@@ -403,7 +441,7 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
       `INSERT INTO ensaios
         (usuario_id, numero_relatorio, tecnico_responsavel, data_ensaio, cliente_projeto, serial_apertadeira, serial_crowfoot, tipo_ensaio, status_final, dados_json, status_edicao)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, 'ORIGINAL')
-       RETURNING id`,
+       RETURNING id, criado_em`,
       [
         usuarioLogado.id,
         resumo.numeroRelatorio,
@@ -418,11 +456,15 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
       ]
     );
 
+    const prazoNovoEnsaio = calcularPrazoEdicao(resultado.rows[0].criado_em);
+
     res.json({
       ok: true,
       id: resultado.rows[0].id,
       numero_relatorio: resumo.numeroRelatorio,
       status_edicao: "ORIGINAL",
+      prazo_edicao_ate: prazoNovoEnsaio.prazoFormatado,
+      dias_restantes_edicao: prazoNovoEnsaio.diasRestantes,
       mensagem: "Ensaio salvo no banco PostgreSQL como ORIGINAL."
     });
   } catch (erro) {
