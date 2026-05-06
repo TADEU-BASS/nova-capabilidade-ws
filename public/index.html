@@ -997,7 +997,7 @@
           <button class="destino-badge">Destino: Capabilidade_WS</button>
         </section>
 
-        <div class="modo-consulta-aviso">ℹ️ Ensaio salvo no banco: edição liberada. Se regravar, ficará marcado como Editada.</div>
+        <div class="modo-consulta-aviso">🔒 Modo consulta: este ensaio foi aberto apenas para visualização. Para alterar, volte ao histórico e clique em Editar.</div>
 
         <section class="content-card">
           <div class="card-header">
@@ -1168,7 +1168,7 @@
           <button class="destino-badge">Folha de amostras</button>
         </section>
 
-        <div class="modo-consulta-aviso">ℹ️ Ensaio salvo no banco: edição das amostras liberada. Se regravar, ficará marcado como Editada.</div>
+        <div class="modo-consulta-aviso">🔒 Modo consulta: as amostras estão bloqueadas para evitar alteração sem querer. Para alterar, volte ao histórico e clique em Editar.</div>
 
         <section class="content-card">
           <div class="card-header">
@@ -1334,7 +1334,7 @@
           <button class="destino-badge">Torque único</button>
         </section>
 
-        <div class="modo-consulta-aviso">ℹ️ Ensaio salvo no banco: edição do torque único liberada. Se regravar, ficará marcado como Editada.</div>
+        <div class="modo-consulta-aviso">🔒 Modo consulta: o torque único está bloqueado para evitar alteração sem querer. Para alterar, volte ao histórico e clique em Editar.</div>
 
         <section class="content-card">
           <div class="card-header">
@@ -1751,7 +1751,9 @@
 
                 <div class="help-topico" id="help-edicao">
                   <h3>13. Edição e exclusão</h3>
-                  <p>Todos os usuários logados podem editar e regravar ensaios permitidos para o seu perfil.</p>
+                  <p>Ao clicar em <strong>Abrir</strong>, o ensaio entra em modo consulta e todos os campos ficam bloqueados para evitar alterações sem querer.</p>
+                  <p>Ao clicar em <strong>Editar</strong>, o ensaio abre diretamente com os campos liberados, sem popup de confirmação.</p>
+                  <p>Técnicos só conseguem visualizar e editar os ensaios salvos pelo próprio usuário.</p>
                   <p>O técnico pode corrigir ou completar um ensaio e salvar novamente no banco por até <strong>15 dias</strong> após o primeiro salvamento.</p>
                   <p>Após essa regravação, o histórico passa a mostrar <strong>Editada</strong> em vermelho.</p>
                   <p>Depois de 15 dias, técnicos não conseguem mais regravar o ensaio. Se for necessário corrigir algo, o usuário deve entrar em contato com um administrador.</p>
@@ -1794,7 +1796,7 @@
               <h2>1. Visão geral do app</h2>
               <p>O app Capabilidade WS apoia ensaios de ferramentas conforme ISO 5393 e critérios internos WS. O fluxo principal é login, preenchimento dos dados, medições, cálculo, relatório e salvamento.</p>
               <h2>2. Login e perfis</h2>
-              <p>Existem perfis ADMIN e TECNICO. O administrador pode cadastrar usuários, editar usuários e excluir ensaios. O técnico pode criar, editar, calcular, gerar relatório e salvar/regravar ensaios permitidos para seu perfil.</p>
+              <p>Existem perfis ADMIN e TECNICO. O administrador pode cadastrar usuários, editar usuários, visualizar todos os ensaios e excluir ensaios. O técnico pode criar, calcular, gerar relatório, salvar e regravar somente os ensaios salvos pelo próprio usuário.</p>
               <h2>3. Dados do ensaio</h2>
               <p>Os dados do ensaio identificam a ferramenta, controlador, transdutor, STA 6000, certificados, cliente/projeto/linha e parâmetros do ensaio. O número do relatório identifica o registro no banco.</p>
               <h2>4. Campos obrigatórios</h2>
@@ -1816,13 +1818,13 @@
               <h2>12. Histórico e flags</h2>
               <p>No histórico, a coluna Edição mostra Original em verde quando o ensaio nunca foi regravado e Editada em vermelho quando o ensaio já foi alterado e salvo novamente.</p>
               <h2>13. Edição e exclusão</h2>
-              <p>Técnicos podem editar e regravar ensaios permitidos para o seu perfil. A exclusão de ensaios salvos no banco é permitida somente para administradores.</p>
+              <p>Técnicos visualizam somente os próprios ensaios no histórico. O botão Abrir abre o ensaio bloqueado para consulta. O botão Editar abre o ensaio com edição liberada, respeitando o prazo de 15 dias. A exclusão de ensaios salvos no banco é permitida somente para administradores.</p>
               <h2>14. Salvar e carregar JSON</h2>
               <p>Salvar ensaio JSON gera um backup local. Carregar ensaio JSON abre esse arquivo novamente. Para aparecer no histórico, é necessário usar Salvar no banco.</p>
               <h2>15. Torque único</h2>
               <p>Torque único é usado para avaliar apenas um ponto de torque com uma única tabela, usando torque nominal, tolerância, tipo de junta e quantidade de amostras.</p>
               <h2>16. Problemas comuns</h2>
-              <p>Se não abrir tabelas, verifique campos obrigatórios. Se não calcular, confira as amostras. Se não aparecer no histórico, confirme se salvou no banco. Se a flag ficou Editada, o ensaio foi regravado com o mesmo número de relatório. Técnico não exclui ensaio; exclusão é somente para administrador.</p>
+              <p>Se não abrir tabelas, verifique campos obrigatórios. Se não calcular, confira as amostras. Se não aparecer no histórico do técnico, confirme se o ensaio foi salvo pelo mesmo usuário logado. Se a flag ficou Editada, o ensaio foi regravado com o mesmo número de relatório. Técnico não exclui ensaio; exclusão é somente para administrador.</p>
             </div>
           </div>
         </section>
@@ -2807,7 +2809,7 @@
 
     function limparTabelas() {
       if (estaEmModoConsultaBanco()) {
-        bloquearAcaoSomenteAdmin("Este ensaio já foi gravado no banco. Somente administrador pode limpar as tabelas.");
+        bloquearAcaoSomenteAdmin("Modo consulta: para alterar as tabelas, volte ao histórico e clique em Editar.");
         return;
       }
       Object.values(tabelas).forEach(tbody => {
@@ -2828,7 +2830,7 @@
 
     async function colarTabela(tbodyId) {
       if (estaEmModoConsultaBanco()) {
-        bloquearAcaoSomenteAdmin("Este ensaio já foi gravado no banco. Somente administrador pode colar valores nas tabelas.");
+        bloquearAcaoSomenteAdmin("Modo consulta: para colar valores, volte ao histórico e clique em Editar.");
         return;
       }
       try {
@@ -4279,7 +4281,7 @@
 
     function limparTorqueUnico() {
       if (estaEmModoConsultaBanco()) {
-        bloquearAcaoSomenteAdmin("Este ensaio já foi gravado no banco. Somente administrador pode limpar o torque único.");
+        bloquearAcaoSomenteAdmin("Modo consulta: para alterar o torque único, volte ao histórico e clique em Editar.");
         return;
       }
       document.querySelectorAll("#tbody-torque-unico input").forEach(input => input.value = "");
@@ -5012,7 +5014,8 @@
           subtitulo: relT("Regra de edição"),
           mensagem:
             "<strong>Importante:</strong><br>" +
-            "Após o primeiro salvamento no banco, o técnico terá <strong>15 dias</strong> para editar e regravar este ensaio." +
+            "Técnicos visualizam e editam somente os ensaios salvos pelo próprio usuário." +
+            "<br><br>Após o primeiro salvamento no banco, o técnico terá <strong>15 dias</strong> para editar e regravar este ensaio." +
             "<br><br>Depois desse prazo, a edição ficará bloqueada para técnicos e somente um administrador poderá alterar o registro." +
             "<br><br>Se este ensaio já existir no banco e for salvo novamente dentro do prazo, ele ficará marcado como <strong style='color:#991b1b;'>Editada</strong> em vermelho no histórico.",
           mostrarCancelar: true,
@@ -5150,16 +5153,19 @@
         aplicarEstadoEnsaio(dados.dados);
         ensaioBancoAtualId = id;
         ensaioBancoCarregado = true;
-        ensaioBancoModoEdicao = true;
+        ensaioBancoModoEdicao = !!modoEdicao;
         aplicarPermissoesEnsaioBanco();
         mostrarPagina("pagina-dados");
-        mostrarPopup(
-          ((modoEdicao ? relT("Ensaio liberado para edição.") : relT("Ensaio carregado do banco com sucesso.")) +
-          "<br><br>" + relT("Se salvar novamente dentro do prazo de 15 dias, a flag ficará Editada em vermelho.")) +
-          "<br><br>" + relT("Após 15 dias do primeiro salvamento, técnicos não poderão mais regravar este ensaio; somente administrador poderá alterar.") +
-          "<br><br><strong>" + relT("Relatório:") + "</strong> " + (dados.numero_relatorio || "-"),
-          relT("Banco Online")
-        );
+
+        if (!modoEdicao) {
+          mostrarPopup(
+            relT("Ensaio aberto em modo consulta.") +
+            "<br><br>" + relT("Todos os campos ficam bloqueados para evitar alteração sem querer.") +
+            "<br><br>" + relT("Para alterar, volte ao histórico e clique em Editar.") +
+            "<br><br><strong>" + relT("Relatório:") + "</strong> " + (dados.numero_relatorio || "-"),
+            relT("Banco Online")
+          );
+        }
       } catch (erro) {
         mostrarPopup(relT("Não foi possível carregar o ensaio do banco.") + "<br><br><strong>" + relT("Detalhe:") + "</strong> " + relT(erro.message), relT("Erro no banco"));
       }
@@ -5370,7 +5376,7 @@
     }
 
     function estaEmModoConsultaBanco() {
-      return false;
+      return ensaioBancoCarregado && !ensaioBancoModoEdicao;
     }
 
     function marcarEnsaioLocalEditavel() {
@@ -5381,7 +5387,7 @@
     }
 
     function bloquearAcaoSomenteAdmin(mensagem) {
-      mostrarPopup(mensagem || "Este ensaio já foi gravado no banco. Somente administrador pode editar ou salvar alterações.", "Modo consulta");
+      mostrarPopup(mensagem || "Modo consulta: volte ao histórico e clique em Editar para alterar este ensaio.", "Modo consulta");
     }
 
     function aplicarPermissoesEnsaioBanco() {
@@ -5418,8 +5424,8 @@
         );
         botao.disabled = bloqueia;
         botao.classList.toggle("somente-edicao-banco", bloqueia);
-        if (bloqueia) botao.title = "Somente administrador pode alterar ensaio já gravado no banco.";
-        else if (botao.title === "Somente administrador pode alterar ensaio já gravado no banco.") botao.removeAttribute("title");
+        if (bloqueia) botao.title = "Modo consulta: volte ao histórico e clique em Editar para alterar este ensaio.";
+        else if (botao.title === "Modo consulta: volte ao histórico e clique em Editar para alterar este ensaio.") botao.removeAttribute("title");
       });
     }
 
