@@ -713,6 +713,33 @@
       flex-wrap: wrap;
     }
 
+    .flag-edicao {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 86px;
+      min-height: 26px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .2px;
+      white-space: nowrap;
+    }
+
+    .flag-original {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    .flag-editada {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
     .status-db {
       margin-top: 10px;
       font-size: 13px;
@@ -970,7 +997,7 @@
           <button class="destino-badge">Destino: Capabilidade_WS</button>
         </section>
 
-        <div class="modo-consulta-aviso">🔒 Modo consulta: este ensaio já foi gravado no banco. Somente administrador pode editar ou salvar alterações.</div>
+        <div class="modo-consulta-aviso">ℹ️ Ensaio salvo no banco: edição liberada. Se regravar, ficará marcado como Editada.</div>
 
         <section class="content-card">
           <div class="card-header">
@@ -1141,7 +1168,7 @@
           <button class="destino-badge">Folha de amostras</button>
         </section>
 
-        <div class="modo-consulta-aviso">🔒 Modo consulta: este ensaio já foi gravado no banco. Somente administrador pode editar as amostras.</div>
+        <div class="modo-consulta-aviso">ℹ️ Ensaio salvo no banco: edição das amostras liberada. Se regravar, ficará marcado como Editada.</div>
 
         <section class="content-card">
           <div class="card-header">
@@ -1307,7 +1334,7 @@
           <button class="destino-badge">Torque único</button>
         </section>
 
-        <div class="modo-consulta-aviso">🔒 Modo consulta: este ensaio já foi gravado no banco. Somente administrador pode editar o torque único.</div>
+        <div class="modo-consulta-aviso">ℹ️ Ensaio salvo no banco: edição do torque único liberada. Se regravar, ficará marcado como Editada.</div>
 
         <section class="content-card">
           <div class="card-header">
@@ -1489,11 +1516,12 @@
                     <th>Serial apertadeira</th>
                     <th>Serial crowfoot</th>
                     <th>Status</th>
+                    <th>Edição</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyHistoricoEnsaios">
-                  <tr><td colspan="9">Clique em pesquisar para consultar o banco.</td></tr>
+                  <tr><td colspan="10">Clique em pesquisar para consultar o banco.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1563,6 +1591,7 @@
                     <th>Usuário</th>
                     <th>Perfil</th>
                     <th>Status</th>
+                    <th>Edição</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -3847,6 +3876,9 @@
       "Abrir": "Open",
       "Editar": "Edit",
       "Excluir": "Delete",
+      "Original": "Original",
+      "Editada": "Edited",
+      "Se salvar novamente, a flag ficará Editada em vermelho.": "If you save again, the flag will become Edited in red.",
       "Digite a senha para editar/atualizar o ensaio:": "Enter the password to edit/update the test:",
       "Digite a senha para editar o ensaio:": "Enter the password to edit the test:",
       "Digite a senha para excluir o ensaio:": "Enter the password to delete the test:",
@@ -3928,6 +3960,9 @@
       "Abrir": "Abrir",
       "Editar": "Editar",
       "Excluir": "Eliminar",
+      "Original": "Original",
+      "Editada": "Editada",
+      "Se salvar novamente, a flag ficará Editada em vermelho.": "Si guarda nuevamente, la bandera quedará Editada en rojo.",
       "Digite a senha para editar/atualizar o ensaio:": "Digite la contraseña para editar/actualizar el ensayo:",
       "Digite a senha para editar o ensaio:": "Digite la contraseña para editar el ensayo:",
       "Digite a senha para excluir o ensaio:": "Digite la contraseña para eliminar el ensayo:",
@@ -4899,10 +4934,6 @@
 
     async function salvarEnsaioBanco() {
       try {
-        if (estaEmModoConsultaBanco()) {
-          bloquearAcaoSomenteAdmin("Este ensaio já foi gravado no banco. Técnico pode consultar e gerar relatório, mas somente administrador pode salvar alterações.");
-          return;
-        }
         if (!validarCamposObrigatoriosDados()) return;
         const estado = obterEstadoEnsaio();
 
@@ -4913,9 +4944,10 @@
 
         ensaioBancoAtualId = dados.id || ensaioBancoAtualId;
         ensaioBancoCarregado = true;
-        ensaioBancoModoEdicao = usuarioEhAdmin();
+        ensaioBancoModoEdicao = true;
         aplicarPermissoesEnsaioBanco();
-        mostrarPopup(relT("Ensaio salvo no banco online com sucesso.") + "<br><br><strong>" + relT("Relatório:") + "</strong> " + dados.numero_relatorio + (estaEmModoConsultaBanco() ? "<br><br>O ensaio ficou bloqueado para edição. Somente administrador pode alterar." : ""), relT("Banco Online"));
+        const textoFlag = dados.status_edicao === "EDITADA" ? "<br><br><strong>Flag:</strong> 🔴 " + relT("Editada") : "<br><br><strong>Flag:</strong> 🟢 " + relT("Original");
+        mostrarPopup(relT("Ensaio salvo no banco online com sucesso.") + "<br><br><strong>" + relT("Relatório:") + "</strong> " + dados.numero_relatorio + textoFlag, relT("Banco Online"));
       } catch (erro) {
         mostrarPopup(relT("Não foi possível salvar no banco online.") + "<br><br><strong>" + relT("Detalhe:") + "</strong> " + relT(erro.message), relT("Erro no banco"));
       }
@@ -4939,12 +4971,21 @@
       pesquisarEnsaiosBanco();
     }
 
+    function criarFlagEdicaoHistorico(item) {
+      const status = String(item.status_edicao || "ORIGINAL").toUpperCase();
+      if (status === "EDITADA") {
+        const detalhe = item.editado_por ? ` title="Editado por: ${item.editado_por}${item.editado_em ? ' em ' + item.editado_em : ''}"` : "";
+        return `<span class="flag-edicao flag-editada"${detalhe}>🔴 ${relT("Editada")}</span>`;
+      }
+      return `<span class="flag-edicao flag-original">🟢 ${relT("Original")}</span>`;
+    }
+
     async function pesquisarEnsaiosBanco() {
       const tbody = el("tbodyHistoricoEnsaios");
       const status = el("statusBanco");
       if (!tbody) return;
 
-      tbody.innerHTML = `<tr><td colspan="9">${relT("Pesquisando no banco...")}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10">${relT("Pesquisando no banco...")}</td></tr>`;
       if (status) status.textContent = "";
 
       try {
@@ -4968,7 +5009,7 @@
         if (!resposta.ok) throw new Error(relT(dados.erro || "Falha ao consultar o banco."));
 
         if (!dados.length) {
-          tbody.innerHTML = `<tr><td colspan="9">${relT("Nenhum ensaio encontrado.")}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="10">${relT("Nenhum ensaio encontrado.")}</td></tr>`;
           if (status) status.textContent = relT("0 ensaios encontrados.");
           return;
         }
@@ -4983,12 +5024,12 @@
             <td>${item.serial_apertadeira || "-"}</td>
             <td>${item.serial_crowfoot || "-"}</td>
             <td>${relT(item.status_final || "-")}</td>
+            <td>${criarFlagEdicaoHistorico(item)}</td>
             <td>
               <div class="historico-acoes">
                 <button class="action-btn full primary" type="button" onclick="carregarEnsaioBanco(${item.id}, false)">${relT("Abrir")}</button>
-                <button class="action-btn full secondary admin-only" type="button" onclick="editarEnsaioBanco(${item.id})">${relT("Editar")}</button>
+                <button class="action-btn full secondary" type="button" onclick="editarEnsaioBanco(${item.id})">${relT("Editar")}</button>
                 <button class="action-btn full danger admin-only" type="button" onclick="excluirEnsaioBanco(${item.id})">${relT("Excluir")}</button>
-                <span class="admin-only-placeholder">Consulta liberada</span>
               </div>
             </td>
           </tr>
@@ -4996,7 +5037,7 @@
 
         if (status) status.textContent = dados.length + " " + relT("ensaio(s) encontrado(s).");
       } catch (erro) {
-        tbody.innerHTML = `<tr><td colspan="9">${relT("Erro ao consultar banco.")}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10">${relT("Erro ao consultar banco.")}</td></tr>`;
         if (status) status.textContent = relT(erro.message);
       }
     }
@@ -5010,11 +5051,11 @@
         aplicarEstadoEnsaio(dados.dados);
         ensaioBancoAtualId = id;
         ensaioBancoCarregado = true;
-        ensaioBancoModoEdicao = Boolean(modoEdicao && usuarioEhAdmin());
+        ensaioBancoModoEdicao = true;
         aplicarPermissoesEnsaioBanco();
         mostrarPagina("pagina-dados");
         mostrarPopup(
-          (estaEmModoConsultaBanco() ? "Ensaio aberto em modo consulta. Somente administrador pode editar." : (modoEdicao ? relT("Ensaio liberado para edição.") : relT("Ensaio carregado do banco com sucesso."))) +
+          ((modoEdicao ? relT("Ensaio liberado para edição.") : relT("Ensaio carregado do banco com sucesso.")) + "<br><br>" + relT("Se salvar novamente, a flag ficará Editada em vermelho.")) +
           "<br><br><strong>" + relT("Relatório:") + "</strong> " + (dados.numero_relatorio || "-"),
           relT("Banco Online")
         );
@@ -5024,10 +5065,6 @@
     }
 
     async function editarEnsaioBanco(id) {
-      if (!usuarioEhAdmin()) {
-        bloquearAcaoSomenteAdmin("Somente administrador pode editar ensaio já gravado no banco.");
-        return;
-      }
       await carregarEnsaioBanco(id, true);
     }
 
@@ -5232,7 +5269,7 @@
     }
 
     function estaEmModoConsultaBanco() {
-      return ensaioBancoCarregado && !usuarioEhAdmin() && !ensaioBancoModoEdicao;
+      return false;
     }
 
     function marcarEnsaioLocalEditavel() {
