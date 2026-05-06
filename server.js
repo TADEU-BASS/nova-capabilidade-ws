@@ -58,8 +58,28 @@ function obterSenhaRequisicao(req) {
   );
 }
 
-function validarSenhaAdmin(req) {
-  return obterSenhaRequisicao(req) === senhaAdminConfigurada();
+async function validarSenhaAdministradorLogado(req) {
+  const usuario = usuarioSessao(req);
+  const senhaInformada = obterSenhaRequisicao(req);
+
+  if (!usuario || usuario.perfil !== "ADMIN" || !senhaInformada) {
+    return false;
+  }
+
+  const resultado = await pool.query(
+    `SELECT senha_hash, ativo
+     FROM usuarios
+     WHERE id = $1 AND perfil = 'ADMIN'
+     LIMIT 1`,
+    [usuario.id]
+  );
+
+  const registro = resultado.rows[0];
+  if (!registro || !(registro.ativo === true || Number(registro.ativo) === 1)) {
+    return false;
+  }
+
+  return bcrypt.compare(senhaInformada, registro.senha_hash);
 }
 
 function usuarioSessao(req) {
@@ -503,8 +523,8 @@ app.get("/api/ensaios/:id", exigirLogin, async (req, res) => {
 
 app.delete("/api/ensaios/:id", exigirAdmin, async (req, res) => {
   try {
-    if (!validarSenhaAdmin(req)) {
-      return res.status(403).json({ erro: "Senha obrigatória para excluir ensaio." });
+    if (!(await validarSenhaAdministradorLogado(req))) {
+      return res.status(403).json({ erro: "Senha do administrador inválida para excluir ensaio." });
     }
 
     const resultado = await pool.query("DELETE FROM ensaios WHERE id = $1", [req.params.id]);
@@ -557,6 +577,24 @@ async function garantirEstruturaBanco() {
     await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_usuario_id ON ensaios (usuario_id)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_cliente_projeto ON ensaios (cliente_projeto)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_data_ensaio ON ensaios (data_ensaio)");
+
+    // Garante que o usuário administrador principal tenha sempre a senha definida no Render.
+    // Para este projeto, se ADMIN_PASSWORD não estiver configurada, usa Atlas@2024.
+    const adminUserFixo = texto(process.env.ADMIN_USER) || "admin";
+    const adminNameFixo = texto(process.env.ADMIN_NAME) || "Administrador";
+    const adminPassFixo = texto(process.env.ADMIN_PASSWORD) || "Atlas@2024";
+    const senhaHashAdminFixo = await bcrypt.hash(adminPassFixo, 10);
+    await pool.query(
+      `INSERT INTO usuarios (nome, usuario, senha_hash, perfil, ativo)
+       VALUES ($1, $2, $3, 'ADMIN', true)
+       ON CONFLICT (usuario) DO UPDATE SET
+         nome = EXCLUDED.nome,
+         senha_hash = EXCLUDED.senha_hash,
+         perfil = 'ADMIN',
+         ativo = true`,
+      [adminNameFixo, adminUserFixo, senhaHashAdminFixo]
+    );
+    console.log(`Usuário ADMIN principal garantido: ${adminUserFixo}`);
 
     const admins = await pool.query("SELECT id FROM usuarios WHERE perfil = 'ADMIN' LIMIT 1");
     if (!admins.rows.length) {
