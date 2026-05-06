@@ -1239,42 +1239,59 @@
 
         <section class="content-card">
           <div class="card-header">
-            <h2>Parâmetros do torque único</h2>
-            <p>Informe o torque nominal, a tolerância e a quantidade de amostras.</p>
+            <h2>Resumo do ensaio</h2>
+            <p>Dados principais da ferramenta, do torque único e das condições do ensaio.</p>
           </div>
 
           <div class="card-body">
+            <div class="amostras-config">
+              <h3 class="section-title">Configuração das amostras</h3>
+              <div class="section-grid">
+                <div class="field">
+                  <label for="tuAmostras">Quantidade de amostras</label>
+                  <input type="number" id="tuAmostras" min="1" step="1" value="25">
+                </div>
+                <div class="field">
+                  <label>Orientação</label>
+                  <input type="text" value="Informe o total antes de preencher a tabela do torque único" readonly>
+                </div>
+              </div>
+            </div>
+
+            <div class="resumo-dados" id="resumoDadosTorqueUnico"></div>
+
             <div class="form-grid">
-              <div class="field">
-                <label for="tuDescricao">Descrição / ponto de torque</label>
-                <input type="text" id="tuDescricao" placeholder="EX.: Torque 35 Nm / Ponto A">
-              </div>
-              <div class="field">
-                <label for="tuTipoJunta">Tipo de junta</label>
-                <select id="tuTipoJunta">
-                  <option value="Junta rígida - 30 Graus">Junta rígida - 30 Graus</option>
-                  <option value="Junta flexível - 720 Graus">Junta flexível - 720 Graus</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="tuTorqueNominal">Torque nominal</label>
-                <input type="text" id="tuTorqueNominal" placeholder="EX.: 35">
-              </div>
-              <div class="field">
-                <label for="tuTolerancia">Tolerância (%)</label>
-                <input type="text" id="tuTolerancia" placeholder="EX.: 15">
-              </div>
-              <div class="field">
-                <label for="tuAmostras">Quantidade de amostras</label>
-                <input type="number" id="tuAmostras" min="1" step="1" value="25">
-              </div>
-              <div class="field">
-                <label for="tuLimiteMin">Limite mínimo automático</label>
-                <input type="text" id="tuLimiteMin" readonly>
-              </div>
-              <div class="field">
-                <label for="tuLimiteMax">Limite máximo automático</label>
-                <input type="text" id="tuLimiteMax" readonly>
+              <div class="form-section">
+                <h3 class="section-title">Parâmetros do torque único</h3>
+                <div class="section-grid">
+                  <div class="field">
+                    <label for="tuDescricao">Descrição / ponto de torque</label>
+                    <input type="text" id="tuDescricao" placeholder="EX.: Torque 35 Nm / Ponto A">
+                  </div>
+                  <div class="field">
+                    <label for="tuTipoJunta">Tipo de junta</label>
+                    <select id="tuTipoJunta">
+                      <option value="Junta rígida - 30 Graus">Junta rígida - 30 Graus</option>
+                      <option value="Junta flexível - 720 Graus">Junta flexível - 720 Graus</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="tuTorqueNominal">Torque nominal</label>
+                    <input type="text" id="tuTorqueNominal" placeholder="EX.: 35">
+                  </div>
+                  <div class="field">
+                    <label for="tuTolerancia">Tolerância (%)</label>
+                    <input type="text" id="tuTolerancia" placeholder="EX.: 15">
+                  </div>
+                  <div class="field">
+                    <label for="tuLimiteMin">Limite mínimo automático</label>
+                    <input type="text" id="tuLimiteMin" readonly>
+                  </div>
+                  <div class="field">
+                    <label for="tuLimiteMax">Limite máximo automático</label>
+                    <input type="text" id="tuLimiteMax" readonly>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2145,6 +2162,40 @@
       `;
 
       el("pct-inicial-view").textContent = d.porcentagem !== "-" ? `${d.porcentagem}%` : "-";
+      atualizarResumoTorqueUnico();
+    }
+
+    function atualizarResumoTorqueUnico() {
+      const resumoTorque = el("resumoDadosTorqueUnico");
+      if (!resumoTorque) return;
+
+      const d = obterDadosFerramenta();
+      const descricao = valorOuTraco("tuDescricao");
+      const tipoJunta = valorOuTraco("tuTipoJunta");
+      const torqueNominal = valorOuTraco("tuTorqueNominal");
+      const tolerancia = valorOuTraco("tuTolerancia");
+      const amostras = valorOuTraco("tuAmostras");
+      const limiteMin = el("tuLimiteMin")?.value || "-";
+      const limiteMax = el("tuLimiteMax")?.value || "-";
+
+      resumoTorque.innerHTML = `
+        <div><strong>${relT("Relatório")}:</strong> ${d.numeroRelatorio}</div>
+        <div><strong>${relT("Data do ensaio")}:</strong> ${d.dataEnsaio}</div>
+        <div><strong>${relT("Cliente / projeto")}:</strong> ${d.clienteProjeto}</div>
+        <div><strong>${relT("Aplicação")}:</strong> ${relT(d.tipoAplicacao)}</div>
+        <div><strong>${relT("Apertadeira")}:</strong> ${d.apertadeiraModelo}</div>
+        <div><strong>${relT("Serial apertadeira")}:</strong> ${d.serialApertadeira}</div>
+        <div><strong>${relT("Transdutor")}:</strong> ${d.transdutor}</div>
+        <div><strong>${relT("STA 6000")}:</strong> ${d.painel}</div>
+        <div><strong>${relT("Descrição")}:</strong> ${descricao}</div>
+        <div><strong>${relT("Tipo de junta")}:</strong> ${relT(tipoJunta)}</div>
+        <div><strong>${relT("Torque nominal")}:</strong> ${torqueNominal}</div>
+        <div><strong>${relT("Limite mínimo")}:</strong> ${limiteMin}</div>
+        <div><strong>${relT("Limite máximo")}:</strong> ${limiteMax}</div>
+        <div><strong>${relT("Tolerância")}:</strong> ${tolerancia !== "-" ? `${tolerancia}%` : "-"}</div>
+        <div><strong>${relT("Total de amostras")}:</strong> ${amostras}</div>
+        <div><strong>${relT("Técnico responsável")}:</strong> ${d.tecnicoResponsavel}</div>
+      `;
     }
 
     function lerValoresTabela(tbodyId) {
@@ -3977,6 +4028,7 @@
 
       mostrarPagina("pagina-torque-unico");
       calcularLimitesTorqueUnico();
+      atualizarResumoTorqueUnico();
       aplicarVisualObrigatorios();
       calcularTorqueUnicoAutomatico();
 
@@ -4015,6 +4067,7 @@
       const limiteMax = torque ? torque * (1 + fator) : 0;
       el("tuLimiteMin").value = limiteMin ? formatarNumero(limiteMin) : "";
       el("tuLimiteMax").value = limiteMax ? formatarNumero(limiteMax) : "";
+      atualizarResumoTorqueUnico();
     }
 
     function limparResultadosTorqueUnico() {
@@ -5025,13 +5078,20 @@
         campo.addEventListener("input", calcularLimitesTorqueUnico);
         campo.addEventListener("input", aplicarVisualObrigatorios);
         campo.addEventListener("input", calcularTorqueUnicoAutomatico);
+        campo.addEventListener("input", atualizarResumoTorqueUnico);
       }
+    });
+
+    ["tuDescricao", "tuAmostras"].forEach(id => {
+      const campo = el(id);
+      if (campo) campo.addEventListener("input", atualizarResumoTorqueUnico);
     });
 
     const tuTipoJuntaEl = el("tuTipoJunta");
     if (tuTipoJuntaEl) {
       tuTipoJuntaEl.addEventListener("change", aplicarVisualObrigatorios);
       tuTipoJuntaEl.addEventListener("change", calcularTorqueUnicoAutomatico);
+      tuTipoJuntaEl.addEventListener("change", atualizarResumoTorqueUnico);
     }
 
     const tbodyTorqueUnico = el("tbody-torque-unico");
@@ -5046,6 +5106,7 @@
         if (total > 0) criarLinhasTorqueUnico(total, true, true);
         else el("tbody-torque-unico").innerHTML = "";
         aplicarVisualObrigatorios();
+        atualizarResumoTorqueUnico();
         calcularTorqueUnicoAutomatico();
       });
     }
