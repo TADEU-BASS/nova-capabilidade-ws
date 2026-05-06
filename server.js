@@ -366,8 +366,8 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
 
     if (resultadoExistentes.rows.length) {
       const ensaioExistente = resultadoExistentes.rows[0];
-      if (usuarioLogado.perfil !== "ADMIN" && Number(ensaioExistente.usuario_id) !== Number(usuarioLogado.id)) {
-        return res.status(403).json({ erro: "Você só pode alterar ensaios cadastrados pelo seu usuário." });
+      if (usuarioLogado.perfil !== "ADMIN") {
+        return res.status(403).json({ erro: "Somente administrador pode editar ensaios já salvos no banco." });
       }
 
       const usuarioDono = ensaioExistente.usuario_id || usuarioLogado.id;
@@ -487,28 +487,19 @@ app.get("/api/ensaios", exigirLogin, async (req, res) => {
   }
 });
 
-app.get("/api/ensaios/:id", exigirLogin, async (req, res) => {
+app.get("/api/ensaios/:id", exigirAdmin, async (req, res) => {
   try {
-    const usuarioLogado = usuarioSessao(req);
-    const filtros = ["e.id = $1"];
-    const valores = [req.params.id];
-
-    if (usuarioLogado.perfil !== "ADMIN") {
-      valores.push(usuarioLogado.id);
-      filtros.push(`e.usuario_id = $${valores.length}`);
-    }
-
     const resultado = await pool.query(
       `SELECT e.id, e.numero_relatorio, e.tecnico_responsavel,
               TO_CHAR(e.data_ensaio, 'YYYY-MM-DD') AS data_ensaio,
               e.cliente_projeto, e.serial_apertadeira, e.serial_crowfoot, e.tipo_ensaio, e.status_final, e.dados_json
        FROM ensaios e
-       WHERE ${filtros.join(" AND ")}`,
-      valores
+       WHERE e.id = $1`,
+      [req.params.id]
     );
 
     if (!resultado.rows.length) {
-      return res.status(404).json({ erro: "Ensaio não encontrado ou sem permissão de acesso." });
+      return res.status(404).json({ erro: "Ensaio não encontrado." });
     }
 
     const ensaio = resultado.rows[0];
