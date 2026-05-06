@@ -788,7 +788,9 @@
     .admin-only { display: none !important; }
     body.usuario-admin .admin-only { display: revert !important; }
     body.usuario-admin button.admin-only { display: inline-flex !important; }
-    .usuarios-form {
+.admin-only-placeholder { display: inline-flex; align-items: center; justify-content: center; min-height: 26px; padding: 0 10px; border-radius: 6px; background: #eef7fb; color: #5d7480; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    body.usuario-admin .admin-only-placeholder { display: none !important; }
+        .usuarios-form {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr 1fr auto;
       gap: 10px;
@@ -4892,9 +4894,10 @@
             <td>${relT(item.status_final || "-")}</td>
             <td>
               <div class="historico-acoes">
-                <button class="action-btn full primary" type="button" onclick="carregarEnsaioBanco(${item.id}, false)">${relT("Abrir")}</button>
-                <button class="action-btn full secondary" type="button" onclick="editarEnsaioBanco(${item.id})">${relT("Editar")}</button>
+                <button class="action-btn full primary admin-only" type="button" onclick="carregarEnsaioBanco(${item.id}, false)">${relT("Abrir")}</button>
+                <button class="action-btn full secondary admin-only" type="button" onclick="editarEnsaioBanco(${item.id})">${relT("Editar")}</button>
                 <button class="action-btn full danger admin-only" type="button" onclick="excluirEnsaioBanco(${item.id})">${relT("Excluir")}</button>
+                <span class="admin-only-placeholder">Somente administrador</span>
               </div>
             </td>
           </tr>
