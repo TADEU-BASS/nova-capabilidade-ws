@@ -366,17 +366,15 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
 
     if (resultadoExistentes.rows.length) {
       const ensaioExistente = resultadoExistentes.rows[0];
-      if (usuarioLogado.perfil !== "ADMIN") {
-        return res.status(403).json({ erro: "Somente administrador pode editar ensaios já salvos no banco." });
-      }
-
       const usuarioDono = ensaioExistente.usuario_id || usuarioLogado.id;
+
       await pool.query(
         `UPDATE ensaios
          SET usuario_id = $1, tecnico_responsavel = $2, data_ensaio = $3, cliente_projeto = $4,
              serial_apertadeira = $5, serial_crowfoot = $6, tipo_ensaio = $7, status_final = $8,
-             dados_json = $9::jsonb, atualizado_em = CURRENT_TIMESTAMP
-         WHERE id = $10`,
+             dados_json = $9::jsonb, atualizado_em = CURRENT_TIMESTAMP,
+             status_edicao = 'EDITADA', editado_por = $10, editado_em = CURRENT_TIMESTAMP
+         WHERE id = $11`,
         [
           usuarioDono,
           resumo.tecnicoResponsavel,
@@ -387,6 +385,7 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
           resumo.tipoEnsaio,
           resumo.statusFinal,
           JSON.stringify(estado),
+          usuarioLogado.nome || usuarioLogado.usuario || "Usuário",
           ensaioExistente.id
         ]
       );
@@ -395,14 +394,15 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
         ok: true,
         id: ensaioExistente.id,
         numero_relatorio: resumo.numeroRelatorio,
-        mensagem: "Ensaio atualizado no banco PostgreSQL."
+        status_edicao: "EDITADA",
+        mensagem: "Ensaio atualizado no banco PostgreSQL e marcado como EDITADA."
       });
     }
 
     const resultado = await pool.query(
       `INSERT INTO ensaios
-        (usuario_id, numero_relatorio, tecnico_responsavel, data_ensaio, cliente_projeto, serial_apertadeira, serial_crowfoot, tipo_ensaio, status_final, dados_json)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
+        (usuario_id, numero_relatorio, tecnico_responsavel, data_ensaio, cliente_projeto, serial_apertadeira, serial_crowfoot, tipo_ensaio, status_final, dados_json, status_edicao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, 'ORIGINAL')
        RETURNING id`,
       [
         usuarioLogado.id,
@@ -422,7 +422,8 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
       ok: true,
       id: resultado.rows[0].id,
       numero_relatorio: resumo.numeroRelatorio,
-      mensagem: "Ensaio salvo no banco PostgreSQL."
+      status_edicao: "ORIGINAL",
+      mensagem: "Ensaio salvo no banco PostgreSQL como ORIGINAL."
     });
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
@@ -472,6 +473,8 @@ app.get("/api/ensaios", exigirLogin, async (req, res) => {
       `SELECT e.id, e.numero_relatorio, e.tecnico_responsavel,
               TO_CHAR(e.data_ensaio, 'YYYY-MM-DD') AS data_ensaio,
               e.cliente_projeto, e.serial_apertadeira, e.serial_crowfoot, e.tipo_ensaio, e.status_final,
+              COALESCE(e.status_edicao, 'ORIGINAL') AS status_edicao, e.editado_por,
+              TO_CHAR(e.editado_em, 'YYYY-MM-DD HH24:MI') AS editado_em,
               e.criado_em, e.atualizado_em, u.nome AS dono_ensaio
        FROM ensaios e
        LEFT JOIN usuarios u ON u.id = e.usuario_id
@@ -509,7 +512,9 @@ app.get("/api/ensaios/:id", exigirLogin, async (req, res) => {
     const resultado = await pool.query(
       `SELECT e.id, e.usuario_id, e.numero_relatorio, e.tecnico_responsavel,
               TO_CHAR(e.data_ensaio, 'YYYY-MM-DD') AS data_ensaio,
-              e.cliente_projeto, e.serial_apertadeira, e.serial_crowfoot, e.tipo_ensaio, e.status_final, e.dados_json
+              e.cliente_projeto, e.serial_apertadeira, e.serial_crowfoot, e.tipo_ensaio, e.status_final,
+              COALESCE(e.status_edicao, 'ORIGINAL') AS status_edicao, e.editado_por,
+              TO_CHAR(e.editado_em, 'YYYY-MM-DD HH24:MI') AS editado_em, e.dados_json
        FROM ensaios e
        WHERE e.id = $1${filtroPermissao}
        LIMIT 1`,
@@ -532,11 +537,9 @@ app.get("/api/ensaios/:id", exigirLogin, async (req, res) => {
     res.json({
       ...ensaio,
       dados,
-      modo_consulta: usuarioLogado.perfil !== "ADMIN",
-      pode_editar: usuarioLogado.perfil === "ADMIN",
-      mensagem: usuarioLogado.perfil === "ADMIN"
-        ? "Ensaio aberto para edição pelo administrador."
-        : "Ensaio aberto em modo consulta. Somente administrador pode editar ensaio já gravado."
+      modo_consulta: false,
+      pode_editar: true,
+      mensagem: "Ensaio aberto para edição. Ao salvar novamente, ficará marcado como EDITADA."
     });
   } catch (erro) {
     res.status(500).json({ erro: erro.message });
@@ -585,6 +588,9 @@ async function garantirEstruturaBanco() {
         serial_crowfoot VARCHAR(150),
         tipo_ensaio VARCHAR(50),
         status_final VARCHAR(80),
+        status_edicao VARCHAR(20) DEFAULT 'ORIGINAL',
+        editado_por VARCHAR(150),
+        editado_em TIMESTAMP NULL,
         dados_json JSONB NOT NULL,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -595,10 +601,14 @@ async function garantirEstruturaBanco() {
     await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS cliente_projeto VARCHAR(150)");
     await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS serial_crowfoot VARCHAR(150)");
     await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+    await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS status_edicao VARCHAR(20) DEFAULT 'ORIGINAL'");
+    await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS editado_por VARCHAR(150)");
+    await pool.query("ALTER TABLE ensaios ADD COLUMN IF NOT EXISTS editado_em TIMESTAMP NULL");
 
     await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_usuario_id ON ensaios (usuario_id)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_cliente_projeto ON ensaios (cliente_projeto)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_data_ensaio ON ensaios (data_ensaio)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_ensaios_status_edicao ON ensaios (status_edicao)");
 
     // Garante que o usuário administrador principal tenha sempre a senha definida no Render.
     // Para este projeto, se ADMIN_PASSWORD não estiver configurada, usa Atlas@2024.
