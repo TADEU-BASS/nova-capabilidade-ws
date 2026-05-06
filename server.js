@@ -391,9 +391,9 @@ app.post("/api/ensaios", exigirLogin, async (req, res) => {
       const prazoEdicao = calcularPrazoEdicao(ensaioExistente.criado_em);
 
       if (usuarioLogado.perfil !== "ADMIN") {
-        if (ensaioExistente.usuario_id && Number(ensaioExistente.usuario_id) !== Number(usuarioLogado.id)) {
+        if (!ensaioExistente.usuario_id || Number(ensaioExistente.usuario_id) !== Number(usuarioLogado.id)) {
           return res.status(403).json({
-            erro: "Técnico só pode editar ensaios salvos pelo próprio usuário."
+            erro: "Técnico só pode visualizar e editar ensaios salvos pelo próprio usuário."
           });
         }
 
